@@ -4,10 +4,11 @@ ruleset google_directions_api {
         provides get_distance
       }
 
-
     global {
         get_distance = function(to, from) {
-            distance(format_address(to), format_address(from))
+            (to == "None given") => 86400 | 
+            (from == "None given") => 86400 |
+                distance(format_address(to), format_address(from))
         }
 
         distance = function(driver, shop) {

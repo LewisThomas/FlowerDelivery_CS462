@@ -21,4 +21,17 @@ ruleset flower_delivery_order {
             ent:hasDriver := false
         }
     }
+
+    //this is probably a good place for the introduction to the driver
+    rule driver_assigned {
+        select when order driver_assigned
+        pre {
+            driverID = event:attr("driverID")
+            driver_wellknown = event:attr("driver_wellknown")
+        }
+        always {
+            ent:driver_wellknown := driver_wellknown
+            ent:driver_assigned := true
+        }
+    }
 }

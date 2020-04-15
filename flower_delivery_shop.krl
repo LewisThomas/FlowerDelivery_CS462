@@ -4,6 +4,8 @@ ruleset flower_delivery_shop {
 
         use module google_directions_api alias directions
             with api_key = keys:google_directions_api{"api_key"}
+
+        use module flower_delivery_gossip alias gossip
     }
 
     global {
@@ -27,6 +29,33 @@ ruleset flower_delivery_shop {
             drivers_in_network().length()
         }
 
+        // {
+        //     "bidAmount":bid, 
+        //     "location":location || "None given",
+        //     "wellKnown":subscription:wellKnown_Rx(){"id"}
+        // }
+
+        find_best_bid = function(bids) {
+            key = bids.keys().reduce(function(keyA,keyB){
+                choose_better_bid(keyA,keyB,bids)
+            })
+            key
+        }
+
+        choose_better_bid = function(keyA,keyB,bids) {
+            a = bids{keyA}
+            b = bids{keyB}
+            aPrice = a{"bidAmount"}
+            bPrice = b{"bidAmount"}
+            aDistance = directions:get_distance(a{"location"}, ent:address)
+            bDistance = directions:get_distance(b{"location"}, ent:address)
+            priceDiff = math:abs(aPrice - bPrice)
+            bestKey = (priceDiff > 10) =>
+                        ( (aPrice < bPrice) => keyA | keyB ) |
+                        ( (aDistance < bDistance) => keyA | keyB )
+            bestKey
+        }
+
         orderColor = "#555555"
 
     }
@@ -35,7 +64,7 @@ ruleset flower_delivery_shop {
         select when wrangler ruleset_added where rids >< meta:rid
         always {
             ent:orders := {}
-            ent:address := ""
+            ent:address := "None given"
         }
     }
 
@@ -54,6 +83,49 @@ ruleset flower_delivery_shop {
     // sends event flower_delivery_gossip driverAssigned at end
     rule drivers_all_have_bid {
         select when shop order_ready_for_driver_assgmt
+        pre {
+            orderID = event:attr("orderID")
+            orders = gossip:orders()
+            order = orders{orderID}
+            bids = order{driver_bids}
+            
+        }
+        if bids != {} then
+            noop()
+        fired {
+            raise shop event select_driver attributes {
+                "orderID": orderID,
+                "bids": bids
+            }
+        }
+    }
+
+    rule select_driver {
+        select when shop select_driver 
+        pre{
+            orderID = event:attr("orderID")
+            bids = event:attr("bids")
+            winning_driver = find_best_bid(bids)
+            winning_bid = bids{winning_driver}
+            order = ent:orders{orderID}
+        }
+        event:send(
+            {
+                "eci": order{"order_eci"},
+                "eid": "1337",
+                "domain": "order",
+                "type": "driver_assigned",
+                "attrs": {
+                    "driverID": winning_driver,
+                    "driver_wellknown": winning_bid{"wellKnown"}
+                }
+            }
+        )
+        always {
+            raise flower_delivery_gossip event driverAssigned attributes {
+                "orderID": orderID
+            }
+        }
     }
 
     // External event shop:new_order kicks off an order the shop now needs to complete
