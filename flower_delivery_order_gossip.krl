@@ -94,6 +94,7 @@ ruleset flower_delivery_order_gossip {
         select when wrangler ruleset_added where rids >< meta:rid
         always {
             ent:orders := {}
+            ent:peerClock := 0
         }
     }
 
@@ -134,9 +135,9 @@ ruleset flower_delivery_order_gossip {
         noop()
         fired {
             ent:orders := ent:orders.map(function(order, orderID) {
-                newOrder = possibleNewOrders{"orderID"};
+                newOrder = possibleNewOrders{orderID};
                 newOrder => 
-                order.set(["driver_bids"], order{"driver_bids"}.put(possibleNewOrders)) | order;
+                order.set(["driver_bids"], order{"driver_bids"}.put(newOrder{"driver_bids"})) | order;
             })
             ent:orders := ent:orders.put(unseenOrders)
 
@@ -152,10 +153,12 @@ ruleset flower_delivery_order_gossip {
                 sub{"Rx_role"} == "flower_delivery_gossiper"
             });
             numPeers = peers.length()
-            peerToSendOrderToIndex = ent:peerClock.defaultsTo(0) % numPeers;
+            peerToSendOrderToIndex = ent:peerClock.defaultsTo(0) % (numPeers <= 0 => 1 | numPeers); // check for divide by 0 if no peers
             peerToSendOrderTo = peers[peerToSendOrderToIndex];
         }
-        always {
+        if numPeers > 0 then
+        noop()
+        fired {
             raise wrangler event "send_event_on_subs" attributes {
                 "domain":"flower_delivery_gossip",
                 "type":"seen_msg",
@@ -164,8 +167,10 @@ ruleset flower_delivery_order_gossip {
                     "seen_orders":seenOrders
                 }
             }
+            ent:peerClock := ent:peerClock.defaultsTo(0) + 1
+            
+        } finally {
             schedule flower_delivery_gossip event "heartbeat" at time:add(time:now(), {"seconds": heartbeat_interval})
-
         }
     }
 
@@ -203,6 +208,22 @@ ruleset flower_delivery_order_gossip {
         }
         always {
             ent:orders{orderID} := order
+        }
+    }
+
+    rule addBid {
+        select when flower_delivery_gossip addBid
+        pre {
+            targetOrderID = event:attr("orderID")
+            bid = event:attr("bid")
+            driverID = wrangler:myself(){"id"}
+        }
+        if ent:orders{targetOrderID} then
+        noop()
+        fired {
+            ent:orders{[targetOrderID, "driver_bids", driverID]} := bid
+        } else {
+            error info "target order to bid on did not exist!"
         }
     }
 
