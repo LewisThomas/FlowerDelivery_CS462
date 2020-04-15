@@ -1,3 +1,68 @@
+/**
+
+API:
+
+    Purpose: Function that other rulesets on this pico can call to find out what orders have been gossiped and their respective
+             driver bids
+    orders()
+
+    Purpose: Add a peer to the gossip network, assuming that peer has this ruleset installed
+    flower_delivery_gossip:addPeer
+    attrs {
+        "wellKnown" // The ID of the wellknown of the peer you want to add
+    }
+
+    Purpose: Raised by the shop ruleset to add an order that needs delivery bids to the gossip network
+    flower_delivery_gossip:addOrder
+    attrs {
+        "metaInfo" (Map), A map containing any extra meta info the flower shop wants to include in the order info
+    }
+
+    Purpose: Raised by the driver ruleset to add a bid to a target order. Once a bid is made it cannot be changed
+    flower_delivery_gossip:addBid
+    attrs {
+        "orderID" ID of the order to add the bid to
+        "bid" (number) The amount the delivery driver is willing to do it for
+        "location" The location the driver is in, can be anything
+    }
+
+    Purpose: Raised by this ruleset for the shop ruleset to select on, informing the shop ruleset an order is ready
+             for a driver to be selected for it. Note that by default this is checking to see if there are at least
+             3 bids on an order, and if there are, that is when it raises the event. See getOrdersReadyToBeAssignedToDriver function
+             in the code below for the exact criteria used.
+    flower_delivery_gossip:order_ready_for_driver_assgmt
+    attrs {
+        "orderID" // the ID of the order the shop needs to assign a driver to
+    }
+
+    Purpose: raised by the shop ruleset after being notified with order_ready_for_driver_assgmt to mark the order
+             as having been assigned a driver, so the shop ruleset is not continually notified of needing driver assignment
+    flower_delivery_gossip:driverAssigned
+    attrs {
+        "orderID" // the ID of the order the shop has now assigned a driver to
+    }
+
+    Purpose: Raised by this ruleset to notify the driver ruleset that the orders have just changed and the driver might need
+             to make a bid on the new order if it hasn't
+    flower_delivery_gossip:possible_bid_needed
+    attrs {
+        "orders" The same thing that is returned from the orders() function
+    }
+
+
+    ent:orders := {
+        <order ID> : "meta": {
+                                "driver_assigned": <boolean>
+                                "flowerShopID": <ID of order-broadcasting shop>
+                            }
+                    "driver_bids" : {
+                                        <driver ID> : {<bid info>}
+                                    }
+    }
+
+
+
+*/
 ruleset flower_delivery_order_gossip {
     meta {
         use module io.picolabs.wrangler alias wrangler
@@ -151,7 +216,9 @@ ruleset flower_delivery_order_gossip {
                 order.set(["driver_bids"], order{"driver_bids"}.put(newOrder{"driver_bids"})) | order;
             })
             ent:orders := ent:orders.put(unseenOrders)
-
+            raise flower_delivery_gossip event "possible_bid_needed" attributes {
+                "orders":ent:orders
+            }
             
         }
     }
@@ -207,14 +274,18 @@ ruleset flower_delivery_order_gossip {
     }
 
 
-    // DEBUG
+    // 
     rule addOrder {
-        select when flower_delivery_gossip addDebugOrder
+        select when flower_delivery_gossip addDebugOrder // DEBUG
+                or flower_delivery_gossip addOrder
         pre {
             orderID = random:uuid()
             flowerShopID = wrangler:myself(){"id"}
+            flowerShopMetaInfo = event:attr("metaInfo") || {}
 
-            order = {"meta":{"flowerShopID":flowerShopID},
+            order = {"meta":{
+                            "flowerShopID":flowerShopID
+                            }.put(flowerShopMetaInfo),
                     "driver_bids":{}}
         }
         always {
@@ -232,7 +303,7 @@ ruleset flower_delivery_order_gossip {
             bidMap = {
                 "bidAmount":bid, 
                 "location":location || "None given",
-                "wellKnown":subscription:wellKnown_Rx()
+                "wellKnown":subscription:wellKnown_Rx(){"id"}
             }
         }
         if ent:orders{targetOrderID} then
