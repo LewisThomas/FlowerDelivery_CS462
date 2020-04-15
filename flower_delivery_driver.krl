@@ -18,7 +18,7 @@ ruleset flower_delivery_driver {
             "events": [ {
                           "domain":"driver",
                           "type":"debugAddBid",
-                          "attrs":["orderID", "bid"]
+                          "attrs":["orderID", "bid", "location"]
                         },
                         // {
                         //   "domain":"flower_delivery_gossip",
@@ -52,6 +52,7 @@ ruleset flower_delivery_driver {
         pre {
             targetOrderID = event:attr("orderID")
             bid = event:attr("bid")
+            location = event:attr("location")
             driverID = wrangler:myself(){"id"}
         }
         always {

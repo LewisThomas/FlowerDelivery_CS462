@@ -21,10 +21,10 @@ ruleset flower_delivery_order_gossip {
                           "type":"addPeer",
                           "attrs":["wellKnown"]
                         },
-                        {
-                          "domain":"flower_delivery_gossip",
-                          "type":"heartbeat"
-                        },
+                        // {
+                        //   "domain":"flower_delivery_gossip",
+                        //   "type":"heartbeat"
+                        // },
                         {
                           "domain":"flower_delivery_gossip",
                           "type":"addDebugOrder"
@@ -44,7 +44,9 @@ ruleset flower_delivery_order_gossip {
        /**
        
        ent:orders := {
-           <order ID> : "meta"
+           <order ID> : "meta": {
+                                    ""
+                                }
                         "driver_bids" : {
                                             <driver ID> : {<bid info>}
                                         }
@@ -88,6 +90,14 @@ ruleset flower_delivery_order_gossip {
        }
 
        heartbeat_interval = 2
+       driverBidsNeededForOrderSelection = 3
+       getOrdersReadyToBeAssignedDriver = function(orders) {
+           orders.filter(function(order, orderID) {
+               (not order{["meta", "driver_assigned"]}) && 
+               order{["meta", "flowerShopID"]} == wrangler:myself(){"id"} &&
+               order{["driver_bids"]}.length() >= driverBidsNeededForOrderSelection
+           })
+       }
     }
 
     rule onInstallation {
@@ -95,6 +105,7 @@ ruleset flower_delivery_order_gossip {
         always {
             ent:orders := {}
             ent:peerClock := 0
+            raise flower_delivery_gossip event "heartbeat" attributes event:attrs// kickoff heartbeat
         }
     }
 
@@ -216,14 +227,55 @@ ruleset flower_delivery_order_gossip {
         pre {
             targetOrderID = event:attr("orderID")
             bid = event:attr("bid")
+            location = event:attr("location")
             driverID = wrangler:myself(){"id"}
+            bidMap = {
+                "bidAmount":bid, 
+                "location":location || "None given",
+                "wellKnown":subscription:wellKnown_Rx()
+            }
         }
         if ent:orders{targetOrderID} then
         noop()
         fired {
-            ent:orders{[targetOrderID, "driver_bids", driverID]} := bid
+            ent:orders{[targetOrderID, "driver_bids", driverID]} := bidMap
         } else {
             error info "target order to bid on did not exist!"
+        }
+    }
+
+    rule readyToSelectDriverCheck {
+        select when flower_delivery_gossip heartbeat
+        pre {
+            ordersReady = getOrdersReadyToBeAssignedDriver(orders())
+            ordersReadyIDs = ordersReady.keys()
+        }
+        if ordersReadyIDs.length() > 0 then
+            noop()
+        fired {
+            raise flower_delivery_gossip event "notify_flowershop" attributes {
+                "orders":ordersReadyIDs
+            }
+        }
+    }
+
+    rule notifyFlowerShopOrdersToBeAssigned {
+        select when flower_delivery_gossip notify_flowershop
+        foreach event:attr("orders") setting (orderID, i)
+        always {
+            raise shop event "order_ready_for_driver_assgmt" attributes event:attrs.put({
+                "orderID":orderID
+            })
+        }
+    }
+
+    rule flowerShopAssignedDriver {
+        select when flower_delivery_gossip driverAssigned
+        pre {
+            orderID = event:attr("orderID")
+        }
+        always {
+            ent:orders{[orderID, "meta", "driver_assigned"]} := true
         }
     }
 
