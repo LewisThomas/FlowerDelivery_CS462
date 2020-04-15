@@ -1,8 +1,46 @@
 ruleset flower_delivery_order_gossip {
     meta {
+        use module io.picolabs.wrangler alias wrangler
         use module io.picolabs.subscription alias subscription
+        shares orders, __testing
+        provides orders
     }
     global {
+        __testing = { "queries": [ 
+            { "name": "__testing" },
+            {"name":"orders"},
+            // {"name":"generateSeen"},
+            // {"name":"others_seen"},
+            // {"name":"getLastMessage"},
+            // {
+            //   "name":"getCount"
+            // }
+            ],
+            "events": [ {
+                          "domain":"flower_delivery_gossip",
+                          "type":"addPeer",
+                          "attrs":["wellKnown"]
+                        },
+                        {
+                          "domain":"flower_delivery_gossip",
+                          "type":"heartbeat"
+                        },
+                        {
+                          "domain":"flower_delivery_gossip",
+                          "type":"addDebugOrder"
+                        },
+                        //{
+                          //"eci":destination_eci.klog("DESTINATION ECI"),
+                          //"eid":"gossipin'",
+                          //"domain":"gossip",
+                          //"type":message_type,
+                          //"attrs": {
+                          //  "message":actualMessage.klog("ACTUAL MESSAGE IS: "),
+                          //  "this_pico_id":meta:picoId
+                          //}
+                        //}
+                        ] }
+
        /**
        
        ent:orders := {
@@ -33,24 +71,37 @@ ruleset flower_delivery_order_gossip {
        }
 
        getOrdersNotSeen = function(othersSeenOrders) {
-            ent:orders.filter(function(order, orderID) {
+            ent:orders.klog("starting with this ent:orders").filter(function(order, orderID) {
                 othersSeenOrder = othersSeenOrders{orderID};
                 otherSeenOrder => 
-                    ordersHaveDifferingDrivers(othersSeenOrder, order) | false 
+                    ordersHaveDifferingDrivers(othersSeenOrder, order) | true
                 
             })
        }
 
        getSeenOrders = function() {
-        []
+           ent:orders.defaultsTo({})
        }
+
+       orders = function() {
+           ent:orders.defaultsTo({})
+       }
+
+       heartbeat_interval = 2
     }
 
-    rule gossip {
+    rule onInstallation {
+        select when wrangler ruleset_added where rids >< meta:rid
+        always {
+            ent:orders := {}
+        }
+    }
+
+    rule respond_to_seen {
         select when flower_delivery_gossip seen_msg
         pre {
-            seen_orders = event:attr("seen_orders");
-            orders = getOrdersNotSeen(seen_orders);
+            seen_orders = event:attr("seen_orders").klog("received these seen orders");
+            orders = getOrdersNotSeen(seen_orders).klog("calculated these orders differ");
             targetSub = subscription:established().filter(function(sub){
                 sub{"Rx"} == meta:eci
               }).head()
@@ -71,6 +122,13 @@ ruleset flower_delivery_order_gossip {
         select when flower_delivery_gossip orders_rumor
         pre {
             possibleNewOrders = event:attr("seen_orders")
+            possibleNewOrdersIDs = possibleNewOrders.keys()
+            orderIDs = ent:orders.keys()
+            unseenOrderIDs = possibleNewOrdersIDs.difference(orderIDs)
+            unseenOrders = possibleNewOrders.filter(function(order, orderID) {
+                unseenOrderIDs.any(function(newOrderID) {orderID == newOrderID})
+            })
+            
         }
         if possibleNewOrders then
         noop()
@@ -80,6 +138,9 @@ ruleset flower_delivery_order_gossip {
                 newOrder => 
                 order.set(["driver_bids"], order{"driver_bids"}.put(possibleNewOrders)) | order;
             })
+            ent:orders := ent:orders.put(unseenOrders)
+
+            
         }
     }
 
@@ -96,14 +157,56 @@ ruleset flower_delivery_order_gossip {
         }
         always {
             raise wrangler event "send_event_on_subs" attributes {
-                "domain":"",
-                "type":"",
-                "attrs":""
+                "domain":"flower_delivery_gossip",
+                "type":"seen_msg",
+                "subID":peerToSendOrderTo{"Id"},
+                "attrs":{
+                    "seen_orders":seenOrders
+                }
+            }
+            schedule flower_delivery_gossip event "heartbeat" at time:add(time:now(), {"seconds": heartbeat_interval})
+
+        }
+    }
+
+    rule addGossipPeer {
+        select when flower_delivery_gossip addPeer
+        pre {
+            wellKnown = event:attr("wellKnown")
+        }
+        always {
+            raise wrangler event "subscription" attributes {
+                "wellKnown_Tx":wellKnown,
+                "Rx_role":"flower_delivery_gossiper",
+                "Tx_role":"flower_delivery_gossiper",
             }
         }
     }
 
-    rule send_order {
-        select when flower_delivery_gossip send_order_info
+    rule accept_peer_sub {
+        select when wrangler inbound_pending_subscription_added 
+        always {
+            raise wrangler event "pending_subscription_approval" attributes event:attrs
+        }
     }
+
+
+    // DEBUG
+    rule addOrder {
+        select when flower_delivery_gossip addDebugOrder
+        pre {
+            orderID = random:uuid()
+            flowerShopID = wrangler:myself(){"id"}
+
+            order = {"meta":{"flowerShopID":flowerShopID},
+                    "driver_bids":{}}
+        }
+        always {
+            ent:orders{orderID} := order
+        }
+    }
+
+    // rule send_order {
+    //     select when flower_delivery_gossip send_order_info
+    // }
 }
