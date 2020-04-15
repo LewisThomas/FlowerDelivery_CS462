@@ -15,6 +15,7 @@ API:
     Purpose: Raised by the shop ruleset to add an order that needs delivery bids to the gossip network
     flower_delivery_gossip:addOrder
     attrs {
+        "orderID", random id (UUID) that identifies the order
         "metaInfo" (Map), A map containing any extra meta info the flower shop wants to include in the order info
     }
 
@@ -279,7 +280,7 @@ ruleset flower_delivery_order_gossip {
         select when flower_delivery_gossip addDebugOrder // DEBUG
                 or flower_delivery_gossip addOrder
         pre {
-            orderID = random:uuid()
+            orderID = event:attr("orderID")
             flowerShopID = wrangler:myself(){"id"}
             flowerShopMetaInfo = event:attr("metaInfo") || {}
 
