@@ -145,7 +145,8 @@ ruleset flower_delivery_shop {
                 attributes { 
                     "name": orderID, 
                     "color": orderColor,
-                    "rids": rids 
+                    "rids": rids,
+                    "customerWellknown": customer
                 }
             
         }

@@ -3,7 +3,10 @@ ruleset flower_delivery_order {
     meta {
         shares isDriver
         provides isDriver
-
+        use module keys
+        use module twilio with 
+            account_sid = keys:twilio{"account_sid"}
+            auth_token =  keys:twilio{"auth_token"}
     }
 
     global {
@@ -16,10 +19,17 @@ ruleset flower_delivery_order {
 
     rule onInstallation {
         select when wrangler ruleset_added where rids >< meta:rid
+        pre {
+            customerWellknown = event:attr("customerWellknown")
+        }
         always {
-            ent:customer_wellknown := ""
             ent:driver_wellknown := ""
             ent:driver_assigned := false
+            raise wrangler event "subscription" attributes {
+                "wellKnown_Tx": customerWellknown,
+                "Rx_role":"flower_order",
+                "Tx_role":"flower_customer"
+            }
         }
     }
 
