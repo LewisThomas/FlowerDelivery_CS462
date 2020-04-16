@@ -89,7 +89,7 @@ ruleset flower_delivery_shop {
             orderID = event:attr("orderID")
             orders = gossip:orders()
             order = orders{orderID}
-            bids = order{driver_bids}
+            bids = order{"driver_bids"}
             
         }
         if bids != {} then
