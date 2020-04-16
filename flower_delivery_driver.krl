@@ -20,10 +20,10 @@ ruleset flower_delivery_driver {
                           "type":"debugAddBid",
                           "attrs":["orderID", "bid", "location"]
                         },
-                        // {
-                        //   "domain":"flower_delivery_gossip",
-                        //   "type":"heartbeat"
-                        // },
+                        {
+                          "domain":"driver",
+                          "type":"delivery_arrived"
+                        }
                         // {
                         //   "domain":"flower_delivery_gossip",
                         //   "type":"addDebugOrder"

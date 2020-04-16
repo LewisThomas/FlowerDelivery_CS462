@@ -21,10 +21,12 @@ ruleset flower_delivery_order {
         select when wrangler ruleset_added where rids >< meta:rid
         pre {
             customerWellknown = event:attr("customerWellknown")
+            orderID = event:attr("orderID")
         }
         always {
             ent:driver_wellknown := ""
             ent:driver_assigned := false
+            ent:orderID := orderID
             raise wrangler event "subscription" attributes {
                 "wellKnown_Tx": customerWellknown,
                 "Rx_role":"flower_order",
@@ -80,24 +82,31 @@ ruleset flower_delivery_order {
                 "domain": "customer",
                 "type": "send_message",
                 "attrs": {
-                    "message": "Your driver has been found!"
+                    "message": "Your order has arrived!"
                 }
             }
         )
         always {
-
+            raise order event notify_shop attributes {
+                "orderID": ent:orderID
+            }
         }
 
     }
 
-    rule customer_subscribe {
-        select when order set_customer
-        pre {
-            customer_wellknown = event:attr("wellknown")
-            orderID = event:attr("orderID")
-        }
-        always {
-            ent:customer_wellknown := customer_wellknown
-        }
+    rule notify_shop {
+        select when order notify_shop
+        event:send(
+            {
+                "eci": wrangler:parent_eci(),
+                "eid": "1337",
+                "domain": "order",
+                "type": "complete",
+                "attrs": {
+                    "orderID":event:attr("orderID")
+                }
+            }
+        )
     }
+
 }
