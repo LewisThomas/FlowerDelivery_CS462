@@ -145,7 +145,8 @@ ruleset flower_delivery_shop {
                 attributes { 
                     "name": orderID, 
                     "color": orderColor,
-                    "rids": rids 
+                    "rids": rids,
+                    "customerWellknown": customer
                 }
             
         }
@@ -157,17 +158,6 @@ ruleset flower_delivery_shop {
             orderID = event:attr("name")
             eci = event:attr("eci")
         }
-        event:send(
-            {
-                "eci": eci,
-                "eid": "1337",
-                "domain": "order",
-                "type": "set_customer",
-                "attrs": {
-                    "wellknown": orderID
-                }
-            }
-        )
         fired {
             ent:orders{orderID} := ent:orders{orderID}.put("order_eci", eci)
 
