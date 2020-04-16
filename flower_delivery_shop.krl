@@ -95,7 +95,7 @@ ruleset flower_delivery_shop {
         if bids != {} then
             noop()
         fired {
-            raise shop event select_driver attributes {
+            raise shop event "select_driver" attributes {
                 "orderID": orderID,
                 "bids": bids
             }
@@ -124,7 +124,7 @@ ruleset flower_delivery_shop {
             }
         )
         always {
-            raise flower_delivery_gossip event driverAssigned attributes {
+            raise flower_delivery_gossip event "driverAssigned" attributes {
                 "orderID": orderID
             }
         }
