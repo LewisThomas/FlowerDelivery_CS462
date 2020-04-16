@@ -18,7 +18,7 @@ ruleset flower_delivery_order {
         always {
             ent:customer_wellknown := ""
             ent:driver_wellknown := ""
-            ent:hasDriver := false
+            ent:driver_assigned := false
         }
     }
 
@@ -32,6 +32,16 @@ ruleset flower_delivery_order {
         always {
             ent:driver_wellknown := driver_wellknown
             ent:driver_assigned := true
+        }
+    }
+
+    rule customer_subscribe {
+        select when order set_customer
+        pre {
+            customer_wellknown = event:attr("wellknown")
+        }
+        always {
+            ent:customer_wellknown := customer_wellknown
         }
     }
 }
