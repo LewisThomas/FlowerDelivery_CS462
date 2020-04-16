@@ -2,10 +2,12 @@ ruleset flower_delivery_shop {
     meta {
         shares __testing
 
+        use module keys
+
         use module google_directions_api alias directions
             with api_key = keys:google_directions_api{"api_key"}
 
-        use module flower_delivery_gossip alias gossip
+        use module flower_delivery_order_gossip alias gossip
     }
 
     global {
