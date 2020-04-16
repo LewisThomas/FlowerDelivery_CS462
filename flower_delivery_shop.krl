@@ -173,7 +173,7 @@ ruleset flower_delivery_shop {
 
             raise flower_delivery_gossip event "addOrder" attributes 
             {
-                "orderID":event:attr("orderID")    
+                "orderID":orderID   
             }
         }
     }
