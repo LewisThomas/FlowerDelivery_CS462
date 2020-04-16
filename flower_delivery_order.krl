@@ -3,6 +3,10 @@ ruleset flower_delivery_order {
     meta {
         shares isDriver
         provides isDriver
+
+        use module twilio with 
+            account_sid = keys:twilio{"account_sid"}
+            auth_token =  keys:twilio{"auth_token"}
     }
 
     global {
