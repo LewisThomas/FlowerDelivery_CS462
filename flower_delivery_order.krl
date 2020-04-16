@@ -43,7 +43,21 @@ ruleset flower_delivery_order {
         always {
             ent:driver_wellknown := driver_wellknown
             ent:driver_assigned := true
+
+            raise wrangler event "subscription"
+                attributes
+                { 
+                    "Rx_role": "order",
+                    "Tx_role": "driver",
+                    "channel_type": "subscription",
+                    "wellKnown_Tx": driver_wellknown
+                } 
         }
     }
 
+    rule driver_subscribed {
+        select when wrangler subscription_added Tx_role re#driver#
+
+    }
+    
 }

@@ -7,7 +7,7 @@ ruleset keys {
     key google_directions_api {
       "api_key": ""
     }
-    provides keys twilio to flower_delivery_order //change to whatever it should be if not this
+    provides keys twilio to flower_delivery_customer //change to whatever it should be if not this
     provides keys google_directions_api to flower_delivery_shop
   }
 }

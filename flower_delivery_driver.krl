@@ -59,4 +59,12 @@ ruleset flower_delivery_driver {
             raise flower_delivery_gossip event "addBid" attributes event:attrs
         }
     }
+
+    rule auto_accept {
+        select when wrangler inbound_pending_subscription_added
+        fired {
+          raise wrangler event "pending_subscription_approval"
+            attributes event:attrs
+        }
+      }
 }
