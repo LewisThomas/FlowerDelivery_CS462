@@ -57,35 +57,12 @@ ruleset flower_delivery_order {
         }
     }
 
-    rule driver_subscribed {
-        select when wrangler subscription_added Tx_role re#driver#
-        event:send(
-            {
-                "eci": ent:customer_tx,
-                "eid": "1337",
-                "domain": "customer",
-                "type": "send_message",
-                "attrs": {
-                    "message": "Your driver has been found!"
-                }
-            }
-        )
-
-    }
-
-    rule customer_subscribed {
-        select when wrangler subscription_added Tx_role re#flower_customer#
-        always {
-            ent:customer_tx := event:attr("Tx")
-        }
-
-    }
-
     rule delivery_arrived {
         select when order delivery_arrived
+        foreach Subscriptions:established("Tx_role","flower_customer") setting (subscription)
         event:send(
             {
-                "eci": ent:customer_tx,
+                "eci": subscription{"Tx"},
                 "eid": "1337",
                 "domain": "customer",
                 "type": "send_message",
