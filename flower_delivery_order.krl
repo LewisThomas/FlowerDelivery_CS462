@@ -73,6 +73,14 @@ ruleset flower_delivery_order {
 
     }
 
+    rule customer_subscribed {
+        select when wrangler subscription_added Tx_role re#flower_customer#
+        always {
+            ent:customer_tx := event:attr("Tx")
+        }
+
+    }
+
     rule delivery_arrived {
         select when order delivery_arrived
         event:send(
