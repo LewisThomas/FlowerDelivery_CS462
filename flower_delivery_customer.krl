@@ -2,7 +2,7 @@ ruleset flower_delivery_customer {
     meta {
         shares __testing
 
-        
+        use module keys
         use module twilio with 
             account_sid = keys:twilio{"account_sid"}
             auth_token =  keys:twilio{"auth_token"}
