@@ -60,9 +60,23 @@ ruleset flower_delivery_driver {
         }
     }
 
+    rule delivery_arrived {
+        select when driver delivery_arrived
+        event:send(
+            {
+                "eci": ent:order_tx,
+                "eid": "1337",
+                "domain": "order",
+                "type": "delivery_arrived",
+                "attrs": {}
+            }
+        )
+    }
+
     rule auto_accept {
         select when wrangler inbound_pending_subscription_added
         fired {
+            ent:order_tx := event:attr("Tx")
           raise wrangler event "pending_subscription_approval"
             attributes event:attrs
         }

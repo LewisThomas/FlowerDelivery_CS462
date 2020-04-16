@@ -156,6 +156,7 @@ ruleset flower_delivery_shop {
         pre {
             orderID = event:attr("name")
             eci = event:attr("eci")
+            customer_wellknown = ent:orders{orderID}{"customer_wellknown"}
         }
         event:send(
             {
@@ -164,7 +165,8 @@ ruleset flower_delivery_shop {
                 "domain": "order",
                 "type": "set_customer",
                 "attrs": {
-                    "wellknown": orderID
+                    "wellknown": customer_wellknown,
+                    "orderID": orderID
                 }
             }
         )

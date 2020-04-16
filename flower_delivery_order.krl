@@ -47,6 +47,36 @@ ruleset flower_delivery_order {
 
     rule driver_subscribed {
         select when wrangler subscription_added Tx_role re#driver#
+        event:send(
+            {
+                "eci": ent:customer_tx,
+                "eid": "1337",
+                "domain": "customer",
+                "type": "send_message",
+                "attrs": {
+                    "message": "Your driver has been found!"
+                }
+            }
+        )
+
+    }
+
+    rule delivery_arrived {
+        select when order delivery_arrived
+        event:send(
+            {
+                "eci": ent:customer_tx,
+                "eid": "1337",
+                "domain": "customer",
+                "type": "send_message",
+                "attrs": {
+                    "message": "Your driver has been found!"
+                }
+            }
+        )
+        always {
+
+        }
 
     }
 
@@ -54,6 +84,7 @@ ruleset flower_delivery_order {
         select when order set_customer
         pre {
             customer_wellknown = event:attr("wellknown")
+            orderID = event:attr("orderID")
         }
         always {
             ent:customer_wellknown := customer_wellknown
