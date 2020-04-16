@@ -164,7 +164,7 @@ ruleset flower_delivery_shop {
                 "domain": "order",
                 "type": "set_customer",
                 "attrs": {
-                    "wellknown": name
+                    "wellknown": orderID
                 }
             }
         )
